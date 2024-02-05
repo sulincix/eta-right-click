@@ -7,6 +7,8 @@ files = [
     'src/main.c',
     'src/event.c',
     'src/evdev.c',
+    'src/input.c',
+    'src/epoch_time.c',
 ]
 
 if get_option('debug')
