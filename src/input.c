@@ -32,6 +32,8 @@ void uinput_init() {
 void do_right_click(){
     // TODO: write implementation
     puts("CLICK");
+    // sleep 300ms
+    usleep(300000);
     struct input_event ev_click, ev_sync;
     memset(&ev_click, 0, sizeof(ev_click));
     memset(&ev_sync, 0, sizeof(ev_sync));

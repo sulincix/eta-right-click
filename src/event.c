@@ -19,17 +19,23 @@ void listen_device(struct libevdev *dev){
                 continue;
             }
             if (ev.type == EV_KEY || ev.code == BTN_TOUCH) {
-                debug("Event type: %d, code: %d, value: %d\n", ev.type, ev.code, ev.value);
                 if (ev.value == 1) {
+                    debug("press %ld\n", epoch() - t);
                     t = epoch();
                 } else if (epoch() - t > 700) {
+                    debug("release %ld\n", epoch() - t);
                     do_right_click();
                 }
+//                debug("Event type: %ld, code: %d, value: %d\n", ev.type, ev.code, ev.value);
 
-            
             } else if (ev.type == EV_ABS || ev.type == EV_REL) {
+                if(epoch() - t > 100){
+                    continue;
+                }
+                debug("move %ld\n", epoch() - t);
                 t = epoch();
-                debug("Event type: %d, code: %d, value: %d\n", ev.type, ev.code, ev.value);
+
+//                debug("Event type: %ld, code: %d, value: %d\n", ev.type, ev.code, ev.value);
             }
         } else if (rc != LIBEVDEV_READ_STATUS_SYNC) {
             fprintf(stderr, "Error reading events: %d\n", rc);
