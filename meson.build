@@ -20,6 +20,7 @@ executable('main', files,
     include_directories: include_directories('include'),
     install_dir:  '/usr/bin',
     install: 'true'
+    rename: 'eta-right-click'
 )
 
 
