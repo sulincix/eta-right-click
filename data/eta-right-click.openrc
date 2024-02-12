@@ -1,0 +1,12 @@
+#!/sbin/openrc-run
+
+name="Eta Right Click"
+command="/usr/bin/eta-right-click"
+pidfile="/run/eta-right-click.pid"
+command_background=true
+
+depend() {
+	need udev
+  need localmount
+}
+

@@ -18,5 +18,17 @@ endif
 executable('main', files,
     dependencies: [libevdev_dep],
     include_directories: include_directories('include'),
+    install_dir:  '/usr/bin',
     install: 'true'
 )
+
+
+if get_option('service') == 'systemd'
+    install_data('data/eta-right-click.systemd',
+        install_dir: '/lib/systemd/system/',
+        rename: 'eta-right-click.service')
+elif get_option('service') == 'openrc'
+    install_data('data/eta-right-click.openrc',
+        install_dir: '/etc/init.d/',
+        rename: 'eta-right-click')
+endif
