@@ -17,5 +17,6 @@ endif
 
 executable('main', files,
     dependencies: [libevdev_dep],
-    include_directories: include_directories('include')
+    include_directories: include_directories('include'),
+    install: 'true'
 )
