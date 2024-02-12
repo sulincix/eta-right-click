@@ -19,7 +19,7 @@ executable('main', files,
     dependencies: [libevdev_dep],
     include_directories: include_directories('include'),
     install_dir:  '/usr/bin',
-    install: 'true'
+    install: 'true',
     rename: 'eta-right-click'
 )
 
