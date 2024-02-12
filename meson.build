@@ -15,12 +15,11 @@ if get_option('debug')
     add_project_arguments('-DDEBUG', language: 'c')
 endif
 
-executable('main', files,
+executable('eta-right-click', files,
     dependencies: [libevdev_dep],
     include_directories: include_directories('include'),
     install_dir:  '/usr/bin',
-    install: 'true',
-    rename: 'eta-right-click'
+    install: 'true'
 )
 
 
