@@ -6,6 +6,9 @@
 
 #include <epoch_time.h>
 
+#define block() ioctl(libevdev_get_fd(dev), EVIOCGRAB, 1);
+#define unblock() ioctl(libevdev_get_fd(dev), EVIOCGRAB, 0);
+
 void listen_device(struct libevdev *dev){
     const char *name = libevdev_get_name(dev);
     printf("%s \n",name);
@@ -26,8 +29,6 @@ void listen_device(struct libevdev *dev){
                     debug("release %ld\n", epoch() - t);
                     do_right_click();
                 }
-//                debug("Event type: %ld, code: %d, value: %d\n", ev.type, ev.code, ev.value);
-
             } else if (ev.type == EV_ABS || ev.type == EV_REL) {
                 if(epoch() - t > 100){
                     continue;
@@ -35,7 +36,6 @@ void listen_device(struct libevdev *dev){
                 debug("move %ld\n", epoch() - t);
                 t = epoch();
 
-//                debug("Event type: %ld, code: %d, value: %d\n", ev.type, ev.code, ev.value);
             }
         } else if (rc != LIBEVDEV_READ_STATUS_SYNC) {
             fprintf(stderr, "Error reading events: %d\n", rc);
