@@ -2,21 +2,14 @@ project('eta-right-click', 'c')
 
 # Declare dependency on libevdev
 libevdev_dep = dependency('libevdev')
-libx11_dep = dependency('X11')
 
 files = [
     'src/main.c',
     'src/event.c',
     'src/evdev.c',
-    'src/input.c',
     'src/epoch_time.c',
-    'src/socket_client.c',
 ]
 
-files_blocker = [
-    'src/blocker.c',
-    'src/socket_server.c',
-]
 
 if get_option('debug')
     add_project_arguments('-DDEBUG', language: 'c')
@@ -28,14 +21,6 @@ executable('eta-right-click', files,
     install_dir:  '/usr/bin',
     install: 'true'
 )
-
-executable('eta-pointer-blocker', files_blocker,
-    dependencies: [libx11_dep],
-    include_directories: include_directories('include'),
-    install_dir:  '/usr/bin',
-    install: 'true'
-)
-
 
 if get_option('service') == 'systemd'
     install_data('data/eta-right-click.systemd',

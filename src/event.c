@@ -1,44 +1,45 @@
-#include <event.h>
+#include <stdio.h>
 #include <stdlib.h>
-#include <debug.h>
-
-#include <input.h>
-
+#include <unistd.h>
+#include <sys/ioctl.h>
+#include <libevdev/libevdev.h>
+#include <libevdev/libevdev-uinput.h>
 #include <epoch_time.h>
 
-#define block() ioctl(libevdev_get_fd(dev), EVIOCGRAB, 1);
-#define unblock() ioctl(libevdev_get_fd(dev), EVIOCGRAB, 0);
+#include <string.h>
 
-void listen_device(struct libevdev *dev){
+#define block_press() ioctl(libevdev_get_fd(dev), EVIOCGRAB, 1);
+#define unblock_press() ioctl(libevdev_get_fd(dev), EVIOCGRAB, 0);
+
+void handle_click(struct libevdev_uinput *uidev, int button) {
+    struct input_event ev;
+    memset(&ev, 0, sizeof(ev));
+
+    // Set event type and button code
+    ev.type = EV_KEY;
+    ev.code = button;
+    ev.value = 1; // Press down
+    libevdev_uinput_write_event(uidev, EV_KEY, button, 1);
+    libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
+    usleep(10000); // Sleep for 10ms
+    libevdev_uinput_write_event(uidev, EV_KEY, button, 0); // Release
+    libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0); // Sync
+}
+
+void listen_device(struct libevdev *dev) {
     const char *name = libevdev_get_name(dev);
-    printf("%s \n",name);
+    struct libevdev_uinput *uidev = NULL;
+    printf("%s \n", name);
     int64_t t = epoch();
     int rc = 0;
-    while(1) {
+    rc = libevdev_uinput_create_from_device(dev, LIBEVDEV_UINPUT_OPEN_MANAGED, &uidev);
+    block_press();
+    int mouse_moved = 0;
+    while (1) {
         struct input_event ev;
         rc = libevdev_next_event(dev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
-        if (rc == 0) {
-            if (ev.type <= 0){
-                continue;
-            }
-            if (ev.type == EV_KEY || ev.code == BTN_TOUCH) {
-                if (ev.value == 1) {
-                    debug("press %ld\n", epoch() - t);
-                    t = epoch();
-                } else if (epoch() - t > 300) {
-                    debug("release %ld\n", epoch() - t);
-                    do_right_click();
-                }
-            } else if (ev.type == EV_ABS || ev.type == EV_REL) {
-                if(epoch() - t > 100){
-                    continue;
-                }
-                debug("move %ld\n", epoch() - t);
-                t = epoch();
-
-            }
-        } else if (rc != LIBEVDEV_READ_STATUS_SYNC) {
-            fprintf(stderr, "Error reading events: %d\n", rc);
-        }
-   }
+        rc = libevdev_uinput_write_event(uidev, ev.type, ev.code, ev.value);
+    }
 }
+
+
