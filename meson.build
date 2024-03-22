@@ -2,6 +2,7 @@ project('eta-right-click', 'c')
 
 # Declare dependency on libevdev
 libevdev_dep = dependency('libevdev')
+libx11_dep = dependency('X11')
 
 files = [
     'src/main.c',
@@ -11,12 +12,23 @@ files = [
     'src/epoch_time.c',
 ]
 
+files_blocker = [
+    'src/blocker.c'
+]
+
 if get_option('debug')
     add_project_arguments('-DDEBUG', language: 'c')
 endif
 
 executable('eta-right-click', files,
     dependencies: [libevdev_dep],
+    include_directories: include_directories('include'),
+    install_dir:  '/usr/bin',
+    install: 'true'
+)
+
+executable('eta-pointer-blocker', files_blocker,
+    dependencies: [libx11_dep],
     include_directories: include_directories('include'),
     install_dir:  '/usr/bin',
     install: 'true'

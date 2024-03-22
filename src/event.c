@@ -22,7 +22,7 @@ void listen_device(struct libevdev *dev){
                 if (ev.value == 1) {
                     debug("press %ld\n", epoch() - t);
                     t = epoch();
-                } else if (epoch() - t > 700) {
+                } else if (epoch() - t > 300) {
                     debug("release %ld\n", epoch() - t);
                     do_right_click();
                 }
