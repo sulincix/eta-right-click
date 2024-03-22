@@ -10,10 +10,12 @@ files = [
     'src/evdev.c',
     'src/input.c',
     'src/epoch_time.c',
+    'src/socket_client.c',
 ]
 
 files_blocker = [
-    'src/blocker.c'
+    'src/blocker.c',
+    'src/socket_server.c',
 ]
 
 if get_option('debug')

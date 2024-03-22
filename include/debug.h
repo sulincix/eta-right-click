@@ -4,7 +4,7 @@
 #ifndef DEBUG
 #define debug(A, ...)
 #else
-#define debug(A, ...) printf(A)
+#define debug printf
 #endif
 
 #endif

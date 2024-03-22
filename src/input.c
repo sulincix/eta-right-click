@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #include <linux/uinput.h>
 

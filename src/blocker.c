@@ -4,6 +4,9 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+
+#include <socket.h>
+
 Display* display;
 Window window;
 XEvent e;
@@ -18,7 +21,7 @@ void init(){
 
 void block(){
     unsigned int masks = PointerMotionMask | ButtonPressMask | ButtonReleaseMask;
-    XGrabPointer(display, window, True, PointerMotionMask | ButtonPressMask | ButtonReleaseMask ,
+    XGrabPointer(display, window, True, masks ,
         GrabModeAsync, GrabModeAsync, None, None, CurrentTime);
 }
 
@@ -28,12 +31,14 @@ void unblock(){
 
 int main(int argc, char const *argv[])
 {
+    socket_init();
     init();
     block();
 
     while(1){
-        if (XPending(display))
-            XNextEvent(display, &e);
+        char* msg;
+        msg = socket_read();
+        printf("%c\n", msg[0]);
     }
 
     XCloseDisplay(display);
