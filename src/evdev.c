@@ -21,6 +21,10 @@ void evdev_init() {
         fd = open(devpath, O_RDONLY);
         if (fd > 0) {
             libevdev_new_from_fd(fd, &dev);
+            const char *name = libevdev_get_name(dev);
+            if(strcmp(name, "31") == 0){
+                continue;
+            }
             if (libevdev_has_event_code(dev, EV_KEY, BTN_LEFT) \
                 || libevdev_has_event_code(dev, EV_KEY, BTN_TOUCH)){
                 pthread_t thread_id;

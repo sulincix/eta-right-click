@@ -5,41 +5,84 @@
 #include <libevdev/libevdev.h>
 #include <libevdev/libevdev-uinput.h>
 #include <epoch_time.h>
-
 #include <string.h>
+#include <stdbool.h>
+#include <time.h>
 
 #define block_press() ioctl(libevdev_get_fd(dev), EVIOCGRAB, 1);
 #define unblock_press() ioctl(libevdev_get_fd(dev), EVIOCGRAB, 0);
-
-void handle_click(struct libevdev_uinput *uidev, int button) {
-    struct input_event ev;
-    memset(&ev, 0, sizeof(ev));
-
-    // Set event type and button code
-    ev.type = EV_KEY;
-    ev.code = button;
-    ev.value = 1; // Press down
-    libevdev_uinput_write_event(uidev, EV_KEY, button, 1);
-    libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
-    usleep(10000); // Sleep for 10ms
-    libevdev_uinput_write_event(uidev, EV_KEY, button, 0); // Release
-    libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0); // Sync
-}
 
 void listen_device(struct libevdev *dev) {
     const char *name = libevdev_get_name(dev);
     struct libevdev_uinput *uidev = NULL;
     printf("%s \n", name);
     int64_t t = epoch();
+    bool lock = false;
     int rc = 0;
+    libevdev_set_name(dev, "31");
     rc = libevdev_uinput_create_from_device(dev, LIBEVDEV_UINPUT_OPEN_MANAGED, &uidev);
+    libevdev_enable_event_type(uidev, EV_KEY);
+    libevdev_enable_event_code(uidev, EV_KEY, BTN_RIGHT, NULL);
+    libevdev_enable_event_code(uidev, EV_KEY, BTN_MIDDLE, NULL);
+    libevdev_enable_event_code(uidev, EV_KEY, BTN_LEFT, NULL);
     block_press();
     int mouse_moved = 0;
+    int pressed = 0; // To track whether a key is pressed
+    int64_t press_start; // To track the start time of key press
     while (1) {
         struct input_event ev;
         rc = libevdev_next_event(dev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
-        rc = libevdev_uinput_write_event(uidev, ev.type, ev.code, ev.value);
+        if(lock){
+            continue;
+        }
+        lock = true;
+        if (ev.type == EV_KEY && ev.code == BTN_LEFT && ev.value == 1) { // Key press event
+            printf("PRESS\n");
+            pressed = 1;
+            press_start = epoch();
+        } else if (ev.type == EV_KEY && ev.code == BTN_LEFT && ev.value == 0 && pressed) { // Key release event
+            printf("RELEASE\n");
+            pressed = 0;
+            int64_t press_end = epoch();
+            int press_duration = (int)(press_end - press_start);
+            if(pressed && mouse_moved == 1){
+                libevdev_uinput_write_event(uidev, EV_KEY, BTN_LEFT, 0);
+                libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
+                usleep(10000);
+                mouse_moved = 0;
+                lock = false;
+                continue;
+            } else if (press_duration > 300) { // 300ms in microseconds
+                printf("RIGHT CLICK %d\n", press_duration);
+                libevdev_uinput_write_event(uidev, EV_KEY, BTN_RIGHT, 1);
+                libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
+                usleep(10000);
+                libevdev_uinput_write_event(uidev, EV_KEY, BTN_RIGHT, 0);
+                libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
+            } else {
+                printf("LEFT CLICK %d\n", press_duration);
+                libevdev_uinput_write_event(uidev, EV_KEY, BTN_LEFT, 1);
+                libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
+                usleep(10000);
+                libevdev_uinput_write_event(uidev, EV_KEY, BTN_LEFT, 0);
+                libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
+            }
+            mouse_moved = 0;
+        } else if (ev.type == EV_REL || ev.type == EV_ABS) { // Move event
+            if(pressed && mouse_moved == 0){
+                printf("MOVE\n");
+                mouse_moved = 1;
+                lock = true;
+                press_start = epoch();
+                libevdev_uinput_write_event(uidev, EV_KEY, BTN_LEFT, 1);
+                libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
+                usleep(10000); // Sleep for 10ms
+            }
+            rc = libevdev_uinput_write_event(uidev, ev.type, ev.code, ev.value);
+        } else { // Non-key event when a key is pressed
+            rc = libevdev_uinput_write_event(uidev, ev.type, ev.code, ev.value);
+        }
+        lock = false;
     }
 }
-
 
