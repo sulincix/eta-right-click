@@ -8,6 +8,10 @@
 #include <string.h>
 #include <stdbool.h>
 #include <time.h>
+#include <string.h>
+
+
+#include <debug.h>
 
 #define block_press() ioctl(libevdev_get_fd(dev), EVIOCGRAB, 1);
 #define unblock_press() ioctl(libevdev_get_fd(dev), EVIOCGRAB, 0);
@@ -15,7 +19,7 @@
 void listen_device(struct libevdev *dev) {
     const char *name = libevdev_get_name(dev);
     struct libevdev_uinput *uidev = NULL;
-    printf("%s \n", name);
+    debug("%s \n", name);
     int64_t t = epoch();
     bool lock = false;
     int rc = 0;
@@ -37,15 +41,16 @@ void listen_device(struct libevdev *dev) {
         }
         lock = true;
         if (ev.type == EV_KEY && ev.code == BTN_LEFT && ev.value == 1) { // Key press event
-            printf("PRESS\n");
+            debug("PRESS\n");
             pressed = 1;
             press_start = epoch();
         } else if (ev.type == EV_KEY && ev.code == BTN_LEFT && ev.value == 0 && pressed) { // Key release event
-            printf("RELEASE\n");
-            pressed = 0;
+            debug("RELEASE\n");
             int64_t press_end = epoch();
             int press_duration = (int)(press_end - press_start);
-            if(pressed && mouse_moved == 1){
+            pressed = 0;
+            if(mouse_moved == 1){
+                debug("MOVE DONE\n");
                 libevdev_uinput_write_event(uidev, EV_KEY, BTN_LEFT, 0);
                 libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
                 usleep(10000);
@@ -53,14 +58,14 @@ void listen_device(struct libevdev *dev) {
                 lock = false;
                 continue;
             } else if (press_duration > 300) { // 300ms in microseconds
-                printf("RIGHT CLICK %d\n", press_duration);
+                debug("RIGHT CLICK %d\n", press_duration);
                 libevdev_uinput_write_event(uidev, EV_KEY, BTN_RIGHT, 1);
                 libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
                 usleep(10000);
                 libevdev_uinput_write_event(uidev, EV_KEY, BTN_RIGHT, 0);
                 libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
             } else {
-                printf("LEFT CLICK %d\n", press_duration);
+                debug("LEFT CLICK %d\n", press_duration);
                 libevdev_uinput_write_event(uidev, EV_KEY, BTN_LEFT, 1);
                 libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
                 usleep(10000);
@@ -70,7 +75,7 @@ void listen_device(struct libevdev *dev) {
             mouse_moved = 0;
         } else if (ev.type == EV_REL || ev.type == EV_ABS) { // Move event
             if(pressed && mouse_moved == 0){
-                printf("MOVE\n");
+                debug("MOVE\n");
                 mouse_moved = 1;
                 lock = true;
                 press_start = epoch();
