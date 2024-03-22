@@ -1,5 +1,4 @@
 #include <evdev.h>
-#include <input.h>
 #include <unistd.h>
 
 int main(){

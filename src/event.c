@@ -13,14 +13,10 @@
 
 #include <debug.h>
 
-#define block_press() ioctl(libevdev_get_fd(dev), EVIOCGRAB, 1);
-#define unblock_press() ioctl(libevdev_get_fd(dev), EVIOCGRAB, 0);
-
 void listen_device(struct libevdev *dev) {
     const char *name = libevdev_get_name(dev);
     struct libevdev_uinput *uidev = NULL;
     debug("%s \n", name);
-    int64_t t = epoch();
     bool lock = false;
     int rc = 0;
     libevdev_set_name(dev, "31");
@@ -29,13 +25,16 @@ void listen_device(struct libevdev *dev) {
     libevdev_enable_event_code(uidev, EV_KEY, BTN_RIGHT, NULL);
     libevdev_enable_event_code(uidev, EV_KEY, BTN_MIDDLE, NULL);
     libevdev_enable_event_code(uidev, EV_KEY, BTN_LEFT, NULL);
-    block_press();
+    ioctl(libevdev_get_fd(dev), EVIOCGRAB, 1);
     int mouse_moved = 0;
     int pressed = 0; // To track whether a key is pressed
     int64_t press_start; // To track the start time of key press
     while (1) {
         struct input_event ev;
         rc = libevdev_next_event(dev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
+        if(rc != 0) {
+            continue;
+        }
         if(lock){
             continue;
         }

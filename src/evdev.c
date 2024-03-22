@@ -3,6 +3,7 @@
 #include <linux/input.h>
 
 #include <pthread.h>
+#include <string.h>
 
 #include <libevdev/libevdev.h>
 #include <libevdev/libevdev-uinput.h>
