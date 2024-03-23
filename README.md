@@ -7,3 +7,6 @@ ninja -C build
 
 ## dependencies
 * libevdev
+
+## touchegg vs eta-right-click
+[![Amogus](diagram.svg)]()
