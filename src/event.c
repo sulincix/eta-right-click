@@ -29,6 +29,8 @@ void listen_device(struct libevdev *dev) {
     int mouse_moved = 0;
     int pressed = 0; // To track whether a key is pressed
     int64_t press_start; // To track the start time of key press
+    int64_t press_end;
+    int64_t press_duration;
     while (1) {
         struct input_event ev;
         rc = libevdev_next_event(dev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
@@ -45,8 +47,8 @@ void listen_device(struct libevdev *dev) {
             press_start = epoch();
         } else if (ev.type == EV_KEY && ev.code == BTN_LEFT && ev.value == 0 && pressed) { // Key release event
             debug("RELEASE\n");
-            int64_t press_end = epoch();
-            int press_duration = (int)(press_end - press_start);
+            press_end = epoch();
+            press_duration = (int)(press_end - press_start);
             pressed = 0;
             if(mouse_moved == 1){
                 debug("MOVE DONE\n");
@@ -73,7 +75,7 @@ void listen_device(struct libevdev *dev) {
             }
             mouse_moved = 0;
         } else if (ev.type == EV_REL || ev.type == EV_ABS) { // Move event
-            if(pressed && mouse_moved == 0){
+            if(pressed && mouse_moved == 0 && epoch() - press_start > 100){
                 debug("MOVE\n");
                 mouse_moved = 1;
                 lock = true;
