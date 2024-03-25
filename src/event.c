@@ -20,11 +20,13 @@ void listen_device(struct libevdev *dev) {
     bool lock = false;
     int rc = 0;
     libevdev_set_name(dev, "31");
+    libevdev_enable_event_type(dev, EV_KEY);
+    libevdev_enable_event_code(dev, EV_KEY, BTN_RIGHT, NULL);
+    libevdev_enable_event_code(dev, EV_KEY, BTN_MIDDLE, NULL);
+    libevdev_enable_event_code(dev, EV_KEY, BTN_LEFT, NULL);
+    libevdev_enable_event_code(dev, EV_KEY, BTN_TOUCH, NULL);
+
     rc = libevdev_uinput_create_from_device(dev, LIBEVDEV_UINPUT_OPEN_MANAGED, &uidev);
-    libevdev_enable_event_type(uidev, EV_KEY);
-    libevdev_enable_event_code(uidev, EV_KEY, BTN_RIGHT, NULL);
-    libevdev_enable_event_code(uidev, EV_KEY, BTN_MIDDLE, NULL);
-    libevdev_enable_event_code(uidev, EV_KEY, BTN_LEFT, NULL);
     ioctl(libevdev_get_fd(dev), EVIOCGRAB, 1);
     int mouse_moved = 0;
     int pressed = 0; // To track whether a key is pressed
@@ -41,11 +43,11 @@ void listen_device(struct libevdev *dev) {
             continue;
         }
         lock = true;
-        if (ev.type == EV_KEY && ev.code == BTN_LEFT && ev.value == 1) { // Key press event
+        if (ev.type == EV_KEY && (ev.code == BTN_LEFT || ev.code == BTN_TOUCH) && ev.value == 1) { // Key press event
             debug("PRESS\n");
             pressed = 1;
             press_start = epoch();
-        } else if (ev.type == EV_KEY && ev.code == BTN_LEFT && ev.value == 0 && pressed) { // Key release event
+        } else if (ev.type == EV_KEY && (ev.code == BTN_LEFT || ev.code == BTN_TOUCH) && ev.value == 0 && pressed) { // Key release event
             debug("RELEASE\n");
             press_end = epoch();
             press_duration = (int)(press_end - press_start);
@@ -75,8 +77,9 @@ void listen_device(struct libevdev *dev) {
             }
             mouse_moved = 0;
         } else if (ev.type == EV_REL || ev.type == EV_ABS) { // Move event
-            if(pressed && mouse_moved == 0 && epoch() - press_start > 100){
-                debug("MOVE\n");
+            printf("%ld %d\n", ev.value, ev.code);
+            if(pressed && mouse_moved == 0 && epoch() - press_start > 100 && false){
+                debug("MOVE %d\n", epoch() - press_start);
                 mouse_moved = 1;
                 lock = true;
                 press_start = epoch();
