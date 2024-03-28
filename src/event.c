@@ -33,6 +33,10 @@ void listen_device(struct libevdev *dev) {
     int64_t press_start; // To track the start time of key press
     int64_t press_end;
     int64_t press_duration;
+    int press_key = BTN_LEFT;
+
+    int saved_x, saved_y;
+
     while (1) {
         struct input_event ev;
         rc = libevdev_next_event(dev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
@@ -43,51 +47,55 @@ void listen_device(struct libevdev *dev) {
             continue;
         }
         lock = true;
-        if (ev.type == EV_KEY && (ev.code == BTN_LEFT || ev.code == BTN_TOUCH) && ev.value == 1) { // Key press event
-            debug("PRESS\n");
-            pressed = 1;
-            press_start = epoch();
-        } else if (ev.type == EV_KEY && (ev.code == BTN_LEFT || ev.code == BTN_TOUCH) && ev.value == 0 && pressed) { // Key release event
-            debug("RELEASE\n");
-            press_end = epoch();
-            press_duration = (int)(press_end - press_start);
-            pressed = 0;
-            if(mouse_moved == 1){
-                debug("MOVE DONE\n");
-                libevdev_uinput_write_event(uidev, EV_KEY, BTN_LEFT, 0);
-                libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
-                usleep(10000);
-                mouse_moved = 0;
-                lock = false;
-                continue;
-            } else if (press_duration > 300) { // 300ms in microseconds
-                debug("RIGHT CLICK %d\n", press_duration);
-                libevdev_uinput_write_event(uidev, EV_KEY, BTN_RIGHT, 1);
-                libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
-                usleep(10000);
-                libevdev_uinput_write_event(uidev, EV_KEY, BTN_RIGHT, 0);
-                libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
-            } else {
-                debug("LEFT CLICK %d\n", press_duration);
-                libevdev_uinput_write_event(uidev, EV_KEY, BTN_LEFT, 1);
-                libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
-                usleep(10000);
-                libevdev_uinput_write_event(uidev, EV_KEY, BTN_LEFT, 0);
-                libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
+        if (ev.type == EV_KEY){
+            if(ev.code == BTN_LEFT || ev.code == BTN_TOUCH){
+                if(ev.value == 1){ // press event
+                    pressed = 1;
+                    press_start = epoch();
+                    //press_key = ev.code;
+                } else {
+                    press_end = epoch();
+                    press_duration = (int)(press_end - press_start);
+                    mouse_moved = 0;
+                    if(mouse_moved == 0){
+                        debug("MOVE DONE\n");
+                        libevdev_uinput_write_event(uidev, EV_KEY, press_key, 0);
+                        libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
+                        usleep(10000);
+                    } else if(press_duration > 300) { // righ click
+                        debug("RIGHT CLICK %d\n", press_duration);
+                        libevdev_uinput_write_event(uidev, EV_KEY, BTN_RIGHT, 1);
+                        libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
+                        usleep(10000);
+                        libevdev_uinput_write_event(uidev, EV_KEY, BTN_RIGHT, 0);
+                        libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
+                    } else { // left click
+                        debug("LEFT CLICK %d\n", press_duration);
+                        libevdev_uinput_write_event(uidev, EV_KEY, BTN_LEFT, 1);
+                        libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
+                        usleep(10000);
+                        libevdev_uinput_write_event(uidev, EV_KEY, BTN_LEFT, 0);
+                        libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
+                    }
+                }
             }
-            mouse_moved = 0;
-        } else if (ev.type == EV_REL || ev.type == EV_ABS) { // Move event
-            printf("%ld %d\n", ev.value, ev.code);
-            if(pressed && mouse_moved == 0 && epoch() - press_start > 100 && false){
-                debug("MOVE %d\n", epoch() - press_start);
-                mouse_moved = 1;
-                lock = true;
-                press_start = epoch();
-                libevdev_uinput_write_event(uidev, EV_KEY, BTN_LEFT, 1);
-                libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
-                usleep(10000); // Sleep for 10ms
+        } else if (ev.type == EV_ABS){
+            if(epoch() - press_start > 100) { // move event
+                if (pressed && mouse_moved == 0) {
+                    mouse_moved = 1;
+                    libevdev_uinput_write_event(uidev, EV_KEY, press_key, 1);
+                    libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
+                    usleep(10000); // Sleep for 10ms
+                    printf("AMOGUS:%d\n", epoch() - press_start);
+                }
+                // TODO; add event restore
+                libevdev_uinput_write_event(uidev, ev.type, ev.code, ev.value);
+                printf("MOVE:%d\n", epoch() - press_start);
+            }else {
+                // TODO: add event save
+                printf("BLOCK:%d\n", epoch() - press_start);
             }
-            rc = libevdev_uinput_write_event(uidev, ev.type, ev.code, ev.value);
+
         } else { // Non-key event when a key is pressed
             rc = libevdev_uinput_write_event(uidev, ev.type, ev.code, ev.value);
         }
