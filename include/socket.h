@@ -1,19 +1,18 @@
 
 #define SERVER_SOCK_FILE "/dev/amogus-mouse"
 
-#include <libevdev/libevdev.h>
-#include <libevdev/libevdev-uinput.h>
-
 #define EVENT 0
 #define UPDATE 1
 
 typedef struct _socket_data{
     int action;
-    const struct input_absinfo abs_info_x;
-    const struct input_absinfo abs_info_y;
     int ev_code;
     int ev_type;
     int ev_value;
+    int max_x;
+    int max_y;
+    int min_x;
+    int min_y;
 } socket_data;
 
 extern void socket_init();

@@ -1,139 +1,191 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <signal.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <limits.h>
+#include <arpa/inet.h>
 #include <linux/input.h>
 #include <linux/uinput.h>
-#include <libevdev/libevdev.h>
-#include <libevdev/libevdev-uinput.h>
-#include <string.h>
-#include <stdbool.h>
-#include <dirent.h>
 #include <stdint.h>
-
 #include "socket.h"
-
 #define die(str, args...) { \
-	perror(str); \
-	exit(EXIT_FAILURE); \
+    perror(str); exit(EXIT_FAILURE); \
 }
 
-int rc;
-struct libevdev *dev = NULL;
-struct libevdev_uinput *uidev;
-struct input_event ev;
+int udp_socket;
 
-int server_main() {
+int fd_rel;
+int fd_abs;
 
+int mode;
+
+void update_abs_info(int fd, int min_x, int min_y, int max_x, int max_y)
+{
+    struct uinput_abs_setup abs_setup;
+
+    memset(&abs_setup, 0, sizeof(abs_setup));
+    abs_setup.code = ABS_X;
+    abs_setup.absinfo.value = 0;
+    abs_setup.absinfo.minimum = min_x;
+    abs_setup.absinfo.maximum = max_x;
+    abs_setup.absinfo.fuzz = 0;
+    abs_setup.absinfo.flat = 0;
+    abs_setup.absinfo.resolution = 400;
+    if (ioctl(fd, UI_ABS_SETUP, &abs_setup) < 0)
+        die("error: UI_ABS_SETUP ABS_X");
+
+    memset(&abs_setup, 0, sizeof(abs_setup));
+    abs_setup.code = ABS_Y;
+    abs_setup.absinfo.value = 0;
+    abs_setup.absinfo.minimum = min_y;
+    abs_setup.absinfo.maximum = max_y;
+    abs_setup.absinfo.fuzz = 0;
+    abs_setup.absinfo.flat = 0;
+    abs_setup.absinfo.resolution = 400;
+    if (ioctl(fd, UI_ABS_SETUP, &abs_setup) < 0)
+        die("error: UI_ABS_SETUP ABS_Y");
+
+    memset(&abs_setup, 0, sizeof(abs_setup));
+    abs_setup.code = ABS_PRESSURE;
+    abs_setup.absinfo.value = 0;
+    abs_setup.absinfo.minimum = 0;
+    abs_setup.absinfo.maximum = INT16_MAX;
+    abs_setup.absinfo.fuzz = 0;
+    abs_setup.absinfo.flat = 0;
+    abs_setup.absinfo.resolution = 0;
+    if (ioctl(fd, UI_ABS_SETUP, &abs_setup) < 0)
+        die("error: UI_ABS_SETUP ABS_PRESSURE");
+
+}
+
+void init_device(int fd, int abs)
+{
+   	// enable synchronization
+    if (ioctl(fd, UI_SET_EVBIT, EV_SYN) < 0)
+        die("error: ioctl UI_SET_EVBIT EV_KEY");
+
+   	// enable 1 button
+    if (ioctl(fd, UI_SET_EVBIT, EV_KEY) < 0)
+        die("error: ioctl UI_SET_EVBIT EV_KEY");
+    if (ioctl(fd, UI_SET_KEYBIT, BTN_TOUCH) < 0)
+        die("error: ioctl UI_SET_KEYBIT");
+    if (ioctl(fd, UI_SET_KEYBIT, BTN_LEFT) < 0)
+        die("error: ioctl UI_SET_KEYBIT");
+    if (ioctl(fd, UI_SET_KEYBIT, BTN_MIDDLE) < 0)
+        die("error: ioctl UI_SET_KEYBIT");
+    if (ioctl(fd, UI_SET_KEYBIT, BTN_RIGHT) < 0)
+        die("error: ioctl UI_SET_KEYBIT");
+    if (ioctl(fd, UI_SET_KEYBIT, BTN_TOOL_PEN) < 0)
+        die("error  ioctl UI_SET_KEYBIT");
+    if (ioctl(fd, UI_SET_KEYBIT, BTN_STYLUS) < 0)
+        die("error: ioctl UI_SET_KEYBIT");
+    if (ioctl(fd, UI_SET_KEYBIT, BTN_STYLUS2) < 0)
+        die("error: ioctl UI_SET_KEYBIT");
+
+    if (abs == 0)
+    {
+       	// Enable relative events
+        if (ioctl(fd, UI_SET_EVBIT, EV_REL) < 0)
+            die("error: ioctl UI_SET_EVBIT EV_REL");
+
+       	// Enable specific relative events
+        if (ioctl(fd, UI_SET_RELBIT, REL_X) < 0)
+            die("error: ioctl UI_SET_RELBIT REL_X");
+        if (ioctl(fd, UI_SET_RELBIT, REL_Y) < 0)
+            die("error: ioctl UI_SET_RELBIT REL_Y");
+    }
+    else
+    {
+       	// enable 2 main axes + pressure (absolute positioning)
+        if (ioctl(fd, UI_SET_EVBIT, EV_ABS) < 0)
+            die("error: ioctl UI_SET_EVBIT EV_ABS");
+        if (ioctl(fd, UI_SET_ABSBIT, ABS_X) < 0)
+            die("error: ioctl UI_SETEVBIT ABS_X");
+        if (ioctl(fd, UI_SET_ABSBIT, ABS_Y) < 0)
+            die("error: ioctl UI_SETEVBIT ABS_Y");
+        if (ioctl(fd, UI_SET_ABSBIT, ABS_PRESSURE) < 0)
+            die("error: ioctl UI_SETEVBIT ABS_PRESSURE");
+
+        update_abs_info(fd_abs, 0, 0, INT16_MAX, INT16_MAX);
+    }
+
+    struct uinput_setup setup;
+
+    memset(&setup, 0, sizeof(setup));
+    snprintf(setup.name, UINPUT_MAX_NAME_SIZE, "Amogus Device");
+    setup.id.bustype = BUS_VIRTUAL;
+    setup.id.vendor = 0x1453;
+    setup.id.product = 0x1453 + abs;
+    setup.id.version = 2 + abs;
+    setup.ff_effects_max = 0;
+
+    if (ioctl(fd, UI_DEV_SETUP, &setup) < 0)
+        die("error: UI_DEV_SETUP");
+
+    if (ioctl(fd, UI_DEV_CREATE) < 0)
+        die("error: ioctl");
+}
+
+void send_event(socket_data data)
+{
+    struct input_event ev;
+    ev.type = data.ev_type;
+    ev.code = data.ev_code;
+    ev.value = data.ev_value;
+    if (ev.type == EV_ABS)
+    {
+        if (ev.code == ABS_X)
+            ev.value = (ev.value - data.min_x) *INT16_MAX / (data.max_x - data.min_x);
+        if (ev.code == ABS_Y)
+            ev.value = (ev.value - data.min_y) *INT16_MAX / (data.max_y - data.min_y);
+        mode = EV_ABS;
+    }
+    else if (ev.type == EV_REL)
+    {
+        mode = EV_REL;
+    }
+
+    if (mode == EV_ABS)
+    {
+        printf("abs: %d %d %d\n", ev.type, ev.code, ev.value);
+        if (write(fd_abs, &ev, sizeof(ev)) < 0)
+            die("error: write()");
+    }
+    else
+    {
+        printf("rel: %d %d %d\n", ev.type, ev.code, ev.value);
+        if (write(fd_rel, &ev, sizeof(ev)) < 0)
+            die("error: write()");
+    }
+
+    if (write(fd_rel, &ev, sizeof(ev)) < 0)
+        die("error: write()");
+    if (write(fd_abs, &ev, sizeof(ev)) < 0)
+        die("error: write()");
+
+}
+
+int server_main()
+{
     socket_init();
 
-    dev = libevdev_new();
+    if ((fd_rel = open("/dev/uinput", O_WRONLY | O_NONBLOCK)) < 0)
+        die("error: open");
 
-    // replace vendor info
-    libevdev_set_name(dev, "Amogus mouse");
-    libevdev_set_id_bustype(dev, BUS_USB);
-    libevdev_set_id_vendor(dev, 0x1453);
-    libevdev_set_id_product(dev, 0x1299);
-    libevdev_set_id_version(dev, 0x1);
+    if ((fd_abs = open("/dev/uinput", O_WRONLY | O_NONBLOCK)) < 0)
+        die("error: open");
 
-    // Enable event types
-    libevdev_enable_event_type(dev, EV_SYN);
-    libevdev_enable_event_type(dev, EV_KEY);
-    libevdev_enable_event_type(dev, EV_REL);
-    libevdev_enable_event_type(dev, EV_ABS);
+    init_device(fd_rel, 0);
+    init_device(fd_abs, 1);
 
-    // Enable key event codes for a virtual touch screen
-    libevdev_enable_event_code(dev, EV_KEY, BTN_TOUCH, NULL);
-    libevdev_enable_event_code(dev, EV_KEY, BTN_TOOL_FINGER, NULL);
-    libevdev_enable_event_code(dev, EV_KEY, BTN_TOOL_PEN, NULL);
-
-    // Enable mouse event codes for a virtual mouse
-    libevdev_enable_event_code(dev, EV_KEY, BTN_LEFT, NULL);
-    libevdev_enable_event_code(dev, EV_KEY, BTN_MIDDLE, NULL);
-    libevdev_enable_event_code(dev, EV_KEY, BTN_RIGHT, NULL);
-    libevdev_enable_event_code(dev, EV_REL, REL_X, NULL);
-    libevdev_enable_event_code(dev, EV_REL, REL_Y, NULL);
-    libevdev_enable_event_code(dev, EV_REL, REL_WHEEL, NULL);
-
-    // Enable touch retared event codes for single finger touch screen
-    libevdev_enable_event_code(dev, EV_ABS, ABS_X, NULL);
-    libevdev_enable_event_code(dev, EV_ABS, ABS_Y, NULL);
-    libevdev_enable_event_code(dev, EV_ABS, ABS_PRESSURE, NULL);
-
-
-    // Enable touch-related event codes for a virtual touch screen
-    libevdev_enable_event_code(dev, EV_ABS, ABS_MT_SLOT, NULL);
-    libevdev_enable_event_code(dev, EV_ABS, ABS_MT_TOUCH_MAJOR, NULL);
-    libevdev_enable_event_code(dev, EV_ABS, ABS_MT_TOUCH_MINOR, NULL);
-    libevdev_enable_event_code(dev, EV_ABS, ABS_MT_POSITION_X, NULL);
-    libevdev_enable_event_code(dev, EV_ABS, ABS_MT_POSITION_Y, NULL);
-    libevdev_enable_event_code(dev, EV_ABS, ABS_MT_TRACKING_ID, NULL);
-
-    // set axis ranges and resolution
-    struct input_absinfo abs_info_x, abs_info_y, abs_info_pressure;
-    abs_info_x.minimum = 0;
-    abs_info_x.maximum = UINT16_MAX;
-    abs_info_x.fuzz = 0;
-    abs_info_x.flat = 0;
-    abs_info_x.resolution = 400;
-    libevdev_set_abs_info(dev, ABS_X, &abs_info_x);
-
-    abs_info_y.minimum = 0;
-    abs_info_y.maximum = UINT16_MAX;
-    abs_info_y.fuzz = 0;
-    abs_info_y.flat = 0;
-    abs_info_y.resolution = 400;
-    libevdev_set_abs_info(dev, ABS_Y, &abs_info_y);
-
-    abs_info_pressure.minimum = 0;
-    abs_info_pressure.maximum = INT16_MAX;
-    abs_info_pressure.fuzz = 0;
-    abs_info_pressure.flat = 0;
-    abs_info_pressure.resolution = 0;
-    libevdev_set_abs_info(dev, ABS_PRESSURE, &abs_info_pressure);
-
-    // Initialize uinput device
-    rc = libevdev_uinput_create_from_device(dev, LIBEVDEV_UINPUT_OPEN_MANAGED, &uidev);
-
-    rc = libevdev_uinput_write_event(uidev, EV_ABS, ABS_Y, 0);
-        libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
-
-    if (rc < 0) {
-        fprintf(stderr, "Failed to create uinput device: %s\n", strerror(rc));
-        libevdev_free(dev);
-        return -1;
-    }
-
-	// sleep 300ms
-    usleep(300);
-
-//    ioctl(libevdev_get_fd(dev), EVIOCGRAB, 1);
-
-
-    while (1) {
+    while (1)
+    {
         socket_data data = socket_read();
-
-        if (data.action == UPDATE){
-            //update_abs(data.abs_info_x, data.abs_info_y);
-            continue;
-        }
-
-        ev.type = data.ev_type;
-        ev.code =  data.ev_code;
-        ev.value = data.ev_value;
-        printf("Event: %d %d %d\n",
-            ev.type,
-            ev.code,
-            ev.value
-        );
-        rc = libevdev_uinput_write_event(uidev, ev.type, ev.code, ev.value);
-        libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
-        memset(&ev, 0, sizeof(ev));
-
+        send_event(data);
     }
 
-    (void)rc;
-    libevdev_free(dev);
     return 0;
 }
