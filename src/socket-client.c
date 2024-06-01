@@ -23,9 +23,8 @@ void client_init() {
     connect(soc_client_fd, (struct sockaddr *) &client_addr, sizeof(client_addr));
 
 }
-void client_send(int* buff){
-    if (send(soc_client_fd, buff, SOCKET_BUFFER_LENGTH*sizeof(int), 0) == -1) {
+void client_send(socket_data data){
+    if (send(soc_client_fd, &data, sizeof(socket_data), 0) == -1) {
         perror("send");
     }
 }
-

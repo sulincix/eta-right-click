@@ -12,26 +12,49 @@
 
 #include "socket.h"
 
+
+void send_update(struct libevdev *dev, socket_data data){
+    const struct input_absinfo *abs_info_x_ptr = libevdev_get_abs_info(dev, ABS_X);
+    const struct input_absinfo *abs_info_y_ptr = libevdev_get_abs_info(dev, ABS_Y);
+
+    if (abs_info_x_ptr && abs_info_y_ptr) {
+        // Non-const pointers for destination
+        struct input_absinfo *abs_info_x_dest_ptr = (struct input_absinfo*)&data.abs_info_x;
+        struct input_absinfo *abs_info_y_dest_ptr = (struct input_absinfo*)&data.abs_info_y;
+
+        // Copy data
+        memcpy(abs_info_x_dest_ptr, abs_info_x_ptr, sizeof(struct input_absinfo));
+        memcpy(abs_info_y_dest_ptr, abs_info_y_ptr, sizeof(struct input_absinfo));
+    } else {
+        return;
+    }
+    data.action = UPDATE;
+    client_send(data);
+
+}
+
 void listen_device(struct libevdev *dev) {
     int rc;
     (void)rc;
+    socket_data data;
     const char *name = libevdev_get_name(dev);
     int vendor = libevdev_get_id_vendor(dev);
     if(vendor == 0x1453){
-        puts("amogus");
         return;
     }
-    printf("%s\n", name);
     ioctl(libevdev_get_fd(dev), EVIOCGRAB, 1);
-    printf("%d %d\n", libevdev_get_abs_maximum(dev, ABS_Y), libevdev_get_abs_minimum(dev, ABS_Y));
+
+    send_update(dev, data);
+    printf("%s\n", name);
+
     while (1) {
+        data.action = EVENT;
         struct input_event ev;
         rc = libevdev_next_event(dev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
         printf("%d %d %d\n", ev.type, ev.code, ev.value);
-        int data[SOCKET_BUFFER_LENGTH];
-        data[0] = ev.type;
-        data[1] = ev.code;
-        data[2] = ev.value;
+        data.ev_type = ev.type;
+        data.ev_code = ev.code;
+        data.ev_value = ev.value;
         client_send(data);
         //rc = libevdev_uinput_write_event(uidev, ev.type, ev.code, ev.value);
     }
