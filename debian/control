@@ -1,0 +1,15 @@
+Source: eta-right-click
+Section: utils
+Priority: optional
+Maintainer: Ali Rıza KESKİN <ali.riza.keskin@pardus.org.tr>
+Build-Depends: meson, ninja-build, libevdev-dev, libevdev2, pkgconf
+Standards-Version: 4.3.0
+Homepage: https://pardus.org.tr
+
+Package: eta-right-click
+Architecture: any
+Depends: ${misc:Depends},
+         libc6,
+         libevdev2
+Description: Long press right click event emulator.
+ Emulate right click when long press.
