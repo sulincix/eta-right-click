@@ -1,4 +1,4 @@
-CFLAGS:=-Wall -Wextra -Werror
+CFLAGS:=-Wall -Wextra -Werror -Wno-unused
 PREFIX:=/usr
 build: clean
 	mkdir build
