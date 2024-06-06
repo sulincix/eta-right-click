@@ -26,5 +26,7 @@ void client_init() {
 void client_send(socket_data data){
     if (send(soc_client_fd, &data, sizeof(socket_data), 0) == -1) {
         perror("send");
+        close(soc_client_fd);
+        client_init();
     }
 }

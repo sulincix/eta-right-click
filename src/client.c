@@ -19,21 +19,28 @@ void listen_device(struct libevdev *dev) {
     socket_data data;
     const char *name = libevdev_get_name(dev);
     int vendor = libevdev_get_id_vendor(dev);
+    struct libevdev_uinput *uidev;
+
     if(vendor == 0x1453){
         return;
     }
-    ioctl(libevdev_get_fd(dev), EVIOCGRAB, 1);
     const struct input_absinfo* abs_info_x = libevdev_get_abs_info(dev, ABS_X);
     const struct input_absinfo* abs_info_y = libevdev_get_abs_info(dev, ABS_Y);
 
     printf("%s\n", name);
+
+    rc = libevdev_uinput_create_from_device(dev, LIBEVDEV_UINPUT_OPEN_MANAGED, &uidev);
+
+    libevdev_set_id_vendor(dev, 0x1453);
+    libevdev_set_name(dev, "Amogus Device");
+
+    ioctl(libevdev_get_fd(dev), EVIOCGRAB, 1);
 
     while (1) {
         data.action = EVENT;
 
         struct input_event ev;
         rc = libevdev_next_event(dev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
-        printf("%d %d %d\n", ev.type, ev.code, ev.value);
         data.ev_type = ev.type;
         data.ev_code = ev.code;
         data.ev_value = ev.value;
@@ -43,9 +50,14 @@ void listen_device(struct libevdev *dev) {
             data.max_x = abs_info_x->maximum;
             data.max_y = abs_info_y->maximum;
         }
-        client_send(data);
-        //rc = libevdev_uinput_write_event(uidev, ev.type, ev.code, ev.value);
+        if(ev.type == EV_KEY || ev.type == EV_REL){
+            printf("%d %d %d\n", ev.type, ev.code, ev.value);
+            client_send(data);
+        } else {
+            rc = libevdev_uinput_write_event(uidev, ev.type, ev.code, ev.value);
+        }
     }
+    libevdev_uinput_destroy(uidev);
 }
 
 pthread_t thread_id[256];
@@ -62,10 +74,6 @@ void evdev_init() {
         fd = open(devpath, O_RDONLY);
         if (fd > 0) {
             libevdev_new_from_fd(fd, &dev);
-            const char *name = libevdev_get_name(dev);
-            if(strcmp(name, "31") == 0){
-                continue;
-            }
             if (libevdev_has_event_code(dev, EV_KEY, BTN_LEFT) \
                 || libevdev_has_event_code(dev, EV_KEY, BTN_TOUCH)){
                 pthread_create(&thread_id[max_dev++], NULL, (void*) listen_device, (void *)dev);

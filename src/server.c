@@ -129,6 +129,15 @@ void init_device(int fd, int abs)
         die("error: ioctl");
 }
 
+void event_sync(int fd){
+    struct input_event ev;
+    ev.type = EV_SYN;
+    ev.code = 0;
+    ev.value = 0;
+    if (write(fd, &ev, sizeof(ev)) < 0)
+        die("error: write()");
+}
+
 void send_event(socket_data data)
 {
     struct input_event ev;
@@ -165,8 +174,11 @@ void send_event(socket_data data)
         die("error: write()");
     if (write(fd_abs, &ev, sizeof(ev)) < 0)
         die("error: write()");
+    event_sync(fd_rel);
+    event_sync(fd_abs);
 
 }
+
 
 int server_main()
 {
