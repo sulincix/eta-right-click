@@ -9,10 +9,6 @@ typedef struct _socket_data{
     int ev_code;
     int ev_type;
     int ev_value;
-    int max_x;
-    int max_y;
-    int min_x;
-    int min_y;
 } socket_data;
 
 extern void socket_init();

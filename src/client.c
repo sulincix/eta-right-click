@@ -24,8 +24,6 @@ void listen_device(struct libevdev *dev) {
     if(vendor == 0x1453){
         return;
     }
-    const struct input_absinfo* abs_info_x = libevdev_get_abs_info(dev, ABS_X);
-    const struct input_absinfo* abs_info_y = libevdev_get_abs_info(dev, ABS_Y);
 
     printf("%s\n", name);
 
@@ -44,13 +42,7 @@ void listen_device(struct libevdev *dev) {
         data.ev_type = ev.type;
         data.ev_code = ev.code;
         data.ev_value = ev.value;
-        if(ev.type == EV_ABS){
-            data.min_x = abs_info_x->minimum;
-            data.min_y = abs_info_y->minimum;
-            data.max_x = abs_info_x->maximum;
-            data.max_y = abs_info_y->maximum;
-        }
-        if(ev.type == EV_KEY || ev.type == EV_REL){
+        if(ev.type == EV_KEY){
             printf("%d %d %d\n", ev.type, ev.code, ev.value);
             client_send(data);
         } else {
